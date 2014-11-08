@@ -6,6 +6,7 @@ import sys
 import os
 import json
 import subprocess
+import struct
 
 def error(msg) :
     print "ERROR: {}".format(msg)
@@ -15,9 +16,13 @@ def has_config() :
     return os.path.isfile('.config') 
 
 def load_config() :
-    with open('.config', 'r') as f :
-        jsn = json.loads(f.read())
-    return jsn
+    if has_config :
+        with open('.config', 'r') as f :
+            jsn = json.loads(f.read())
+        return jsn
+    else :
+        error("No .config file, run './kc config'!")
+        return None
 
 def check_tool(tool, arg) :
     try :
@@ -40,6 +45,69 @@ def do_config() :
         f.write(json.dumps(config))
     print '.config written'
 
+def get_mess_path() :
+    if not has_config() :
+        do_config()
+    cfg = load_config()
+    if cfg :
+        return cfg['mess']
+
+def run_mess(system, kcc) :
+    # run mess with a KCC file
+    cmd = [get_mess_path(), system, 
+           '-rompath', 'bios', 
+           '-window', '-resolution', '640x512', '-nokeepaspect',
+           '-quik', 'bin/{}'.format(kcc)]
+    subprocess.call(cmd)
+
+def pack_kcc_header(name, start, end) :
+    '''
+    KCC file format header:
+        struct kcc_header
+        {
+            UINT8   name[10];
+            UINT8   reserved[6];
+            UINT8   number_addresses;
+            UINT8   load_address_l;
+            UINT8   load_address_h;
+            UINT8   end_address_l;
+            UINT8   end_address_h;
+            UINT8   execution_address_l;
+            UINT8   execution_address_h;
+            UINT8   pad[128-2-2-2-1-16];
+        };
+    '''
+    hdr = struct.pack('10s6x7B105x', 
+            name, 
+            2,    # number_addresses
+            start & 0xFF, (start >> 8) & 0xFF,  # load_address_l, load_address_h
+            end & 0xFF, (end >> 8) & 0xFF,      # end_address_l, end_address_h
+            0, 0) # execution address (not set)
+    if len(hdr) != 128 :
+        error('ALIGNMENT ERROR')
+    return hdr
+
+def print_hex(s) :
+    print ':'.join('{:02x}'.format(ord(c)) for c in s)    
+
+def make_test_kcc() :
+    # a little KC85/3 program which prints "HELLO WORLD"
+    code = ('\x7F\x7FHELLO\x01'
+            '\xCD\x03\xF0'
+            '\x23'
+            'HELLO WORLD\x0D\x0A\x00'
+            '\xC9')
+    start = 0x200
+    end = start + len(code)
+    kcc = pack_kcc_header('HELLO', start, end) + code
+    return kcc
+
+def do_test(system) :
+    kcc = make_test_kcc()
+    with open('bin/test.kcc', 'wb') as f :
+        f.write(kcc)
+    run_mess(system, 'test.kcc')
+
 #===============================================================================
 if len(sys.argv) == 1 :
     print 'Compile C code for KC85/3 and KC85/4 home computers.\n'
@@ -50,6 +118,8 @@ if len(sys.argv) == 1 :
     print '  compile source into program'
     print '\nkc run (prog)'
     print '  run a compiled program in MESS'
+    print '\nkc test [kc85_3 or kc85_4]'
+    print "  test run with a hardcoded 'HELLO WORLD' program"
 
 else :
     cmd = sys.argv[1]
@@ -72,5 +142,10 @@ else :
         else :
             error('Expected (prog) arg: kc run hello')
         do_run(prg)
+    elif cmd == 'test' :
+        system = 'kc85_3'
+        if len(sys.argv) >= 3 :
+            system = sys.argv[2]
+        do_test(system)
     else :
         error('Unknown cmd: {}'.format(cmd))
