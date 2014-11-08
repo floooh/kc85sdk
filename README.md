@@ -1,42 +1,21 @@
 kc85sdk
 =======
 
-Experimental C-SDK for KC85 home computers.
+Experimental ASM and C SDK for KC85 home computers.
 
-### Cheat Sheet
-
-* **Z80 C compiler:** http://sdcc.sourceforge.net/
-* **MAME/MESS:** https://github.com/mamedev/mame
-* **SDL2:** brew install sdl2_gfx
+### Getting Started (OSX)
 
 ```bash
-Compile MESS:
-> make TARGET=mess
+> brew install sdl2_gfx
+> brew install z80asm
+> brew install mame
+> brew install sdcc
+> cd ~
+> git clone git@github.com:floooh/kc85sdk.git kc85sdk
+> cd kc85sdk
+> ./kc config
+[...]
+> ./kc test
+> ./kc asm hello.s
+> ./kc run hello
 ```
-
-```c
-KCC file header format (see mame/src/mess/machine/kc.c):
-
-struct kcc_header
-{
-    UINT8   name[10];
-    UINT8   reserved[6];
-    UINT8   number_addresses;
-    UINT8   load_address_l;
-    UINT8   load_address_h;
-    UINT8   end_address_l;
-    UINT8   end_address_h;
-    UINT8   execution_address_l;
-    UINT8   execution_address_h;
-    UINT8   pad[128-2-2-2-1-16];
-};
-```
-
-```bash
-Starting mess with roms and .kcc file:
-
-> mess64 kc85_3 -quik test.kcc -window -rompath bios -resolution 640x512 
-```
-
-
-

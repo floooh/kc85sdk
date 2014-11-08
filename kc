@@ -33,32 +33,41 @@ def check_tool(tool, arg) :
         return False
 
 def do_config() :
-    # where is sdcc and mess?
+    # where is sdcc, z80asm and mess?
     sdcc = os.path.expanduser(raw_input("How to call 'sdcc': "))
     if not check_tool(sdcc, '--version') :
         error('{} not found!'.format(sdcc))
     mess = os.path.expanduser(raw_input("How to call 'mess': "))
     if not check_tool(mess, '-help') :
         error('{} not found!'.format(mess))
-    config = { 'sdcc': sdcc, 'mess': mess }
+    z80asm = os.path.expanduser(raw_input("How to call 'z80asm': "))
+    if not check_tool(z80asm, '-help') :
+        error('{} not found!'.format(z80asm))
+    config = { 'sdcc': sdcc, 'mess': mess, 'z80asm': z80asm }
     with open('.config', 'w') as f :
         f.write(json.dumps(config))
     print '.config written'
 
-def get_mess_path() :
+def get_tool_path(tool) :
     if not has_config() :
         do_config()
     cfg = load_config()
     if cfg :
-        return cfg['mess']
+        return cfg[tool]
 
-def run_mess(system, kcc) :
+def run_mess(system, name) :
     # run mess with a KCC file
-    cmd = [get_mess_path(), system, 
+    cmd = [get_tool_path('mess'), system, 
            '-rompath', 'bios', 
            '-window', '-resolution', '640x512', '-nokeepaspect',
-           '-quik', 'bin/{}'.format(kcc)]
+           '-skip_gameinfo',
+           '-quik', 'bin/{}.kcc'.format(name)]
     subprocess.call(cmd)
+
+def run_asm(src, dst) :
+    # assemble a source file with z80asm
+    cmd = [get_tool_path('z80asm'), src, '--verbose', '-o', 'bin/{}.bin'.format(dst)]
+    return 0 == subprocess.call(cmd)
 
 def pack_kcc_header(name, start, end) :
     '''
@@ -106,7 +115,26 @@ def do_test(system) :
     kcc = make_test_kcc()
     with open('bin/test.kcc', 'wb') as f :
         f.write(kcc)
-    run_mess(system, 'test.kcc')
+    run_mess(system, 'test')
+
+def do_asm(src, dst) :
+    # compile to bin/dst.bin
+    if run_asm(src, dst) :
+        # load assembled binary and package into KCC
+        with open('bin/{}.bin'.format(dst), 'rb') as binfile :
+            bin = binfile.read()
+            start = 0x200
+            end = start + len(bin)
+            kcc = pack_kcc_header(dst.upper(), start, end) + bin
+            with open('bin/{}.kcc'.format(dst), 'wb') as kccfile :
+                kccfile.write(kcc)
+            print 'wrote bin/{}.kcc'.format(dst)
+    else :
+        error('Failed to assemble {}'.format(src))
+
+def do_run(system, name) :
+    # run a compiled/assembled KCC file through mess
+    run_mess(system, name)
 
 #===============================================================================
 if len(sys.argv) == 1 :
@@ -114,11 +142,13 @@ if len(sys.argv) == 1 :
     print 'kc (cmd) [args...]'
     print '\nkc config'
     print '  run once to configure for your local environment'
-    print '\nkc make (source) [prog]'
-    print '  compile source into program'
-    print '\nkc run (prog)'
+    print '\nkc make (c-source) [prog]'
+    print '  compile c source into program'
+    print '\nkc asm (asm-source) [prog]'
+    print '  assemble asm source into program'
+    print '\nkc run (prog) [system=kc85_3|kc85_4]'
     print '  run a compiled program in MESS'
-    print '\nkc test [kc85_3 or kc85_4]'
+    print '\nkc test [system=kc85_3|kc85_4]'
     print "  test run with a hardcoded 'HELLO WORLD' program"
 
 else :
@@ -128,20 +158,38 @@ else :
     elif cmd == 'make' :
         src = 'out.c'
         dst = 'out'
-        if len(sys.argv) >= 3 :
+        if len(sys.argv) == 3 :
             src = sys.argv[2]
-        if len(sys.argv) == 4 :
+            dst, ext = os.path.splitext(src)
+        elif len(sys.argv) == 4 :
+            src = sys.argv[2]
             dst = sys.argv[3]
         else :
             error('Excepted (source) and optional [prog] arg: kc make hello.c hello')
         do_make(src, dst)
+    elif cmd == 'asm' :
+        src = 'out.s'
+        prg = 'out'
+        if len(sys.argv) == 3 :
+            src = sys.argv[2]
+            dst, ext = os.path.splitext(src)
+        elif len(sys.argv) == 4:
+            src = sys.argv[2]
+            dst = sys.argv[3]
+        else :
+            error('Excepted (source) and optional [prog] arg: kc asm hello.s hello')
+        do_asm(src, dst)
     elif cmd == 'run' :
+        system = 'kc85_3'
         prg = 'out'
         if len(sys.argv) == 3 :
             prg = sys.argv[2]
+        elif len(sys.argv) == 4 :
+            prg = sys.argv[2]
+            system = sys.argv[3]
         else :
-            error('Expected (prog) arg: kc run hello')
-        do_run(prg)
+            error('Expected (prog) and optional [system] arg: kc run hello kc85_3')
+        do_run(system, prg)
     elif cmd == 'test' :
         system = 'kc85_3'
         if len(sys.argv) >= 3 :
