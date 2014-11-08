@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+'''
+    Run './kc' for help!
+'''
+import sys
+import os
+import json
+import subprocess
+
+def error(msg) :
+    print "ERROR: {}".format(msg)
+    sys.exit(10)
+
+def has_config() :
+    return os.path.isfile('.config') 
+
+def load_config() :
+    with open('.config', 'r') as f :
+        jsn = json.loads(f.read())
+    return jsn
+
+def check_tool(tool, arg) :
+    try :
+        subprocess.check_output([tool, arg])
+        print "'{}' found".format(tool)
+        return True
+    except OSError:
+        return False
+
+def do_config() :
+    # where is sdcc and mess?
+    sdcc = os.path.expanduser(raw_input("How to call 'sdcc': "))
+    if not check_tool(sdcc, '--version') :
+        error('{} not found!'.format(sdcc))
+    mess = os.path.expanduser(raw_input("How to call 'mess': "))
+    if not check_tool(mess, '-help') :
+        error('{} not found!'.format(mess))
+    config = { 'sdcc': sdcc, 'mess': mess }
+    with open('.config', 'w') as f :
+        f.write(json.dumps(config))
+    print '.config written'
+
+#===============================================================================
+if len(sys.argv) == 1 :
+    print 'Compile C code for KC85/3 and KC85/4 home computers.\n'
+    print 'kc (cmd) [args...]'
+    print '\nkc config'
+    print '  run once to configure for your local environment'
+    print '\nkc make (source) [prog]'
+    print '  compile source into program'
+    print '\nkc run (prog)'
+    print '  run a compiled program in MESS'
+
+else :
+    cmd = sys.argv[1]
+    if cmd == 'config' :
+        do_config()
+    elif cmd == 'make' :
+        src = 'out.c'
+        dst = 'out'
+        if len(sys.argv) >= 3 :
+            src = sys.argv[2]
+        if len(sys.argv) == 4 :
+            dst = sys.argv[3]
+        else :
+            error('Excepted (source) and optional [prog] arg: kc make hello.c hello')
+        do_make(src, dst)
+    elif cmd == 'run' :
+        prg = 'out'
+        if len(sys.argv) == 3 :
+            prg = sys.argv[2]
+        else :
+            error('Expected (prog) arg: kc run hello')
+        do_run(prg)
+    else :
+        error('Unknown cmd: {}'.format(cmd))
