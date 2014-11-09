@@ -6,6 +6,7 @@ Experimental ASM and C SDK for KC85 home computers.
 ### Video Snippets
 
 * assembly coding: http://floooh.github.io/kc85sdk/kc85_asm.webm
+* C99 coding: http://floooh.github.io/kc85sdk/kc85_c.webm
 
 ### Getting Started (OSX)
 
