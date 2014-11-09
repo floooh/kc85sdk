@@ -9,6 +9,6 @@
 ; execution starts here
 	call 0xF003			; CAOS system call
 	db 0x23				; system call number (print string)
-	db "HELLO WORLD!\r\n",0		; embedded 0-terminated string
+	db "HELLO WORLD!\r\n\0"		; embedded 0-terminated string
 	ret
 
