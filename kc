@@ -33,24 +33,17 @@ def check_tool(tool, arg) :
         return False
 
 def do_config() :
-    # where is sdcc, z80asm and mess?
-    sdcc = os.path.expanduser(raw_input("How to call 'sdcc': "))
-    if not check_tool(sdcc, '--version') :
-        error('{} not found!'.format(sdcc))
-    makebin = os.path.expanduser(raw_input("How to call 'makebin': "))
-    if not check_tool(makebin, '-help') :
-        error('{} makebin not found!'.format(makebin))
+    # where is mess?
+    # we expect the sdcc and z80asm tools in the path
     mess = os.path.expanduser(raw_input("How to call 'mess': "))
     if not check_tool(mess, '-help') :
         error('{} not found!'.format(mess))
-    z80asm = os.path.expanduser(raw_input("How to call 'z80asm': "))
-    if not check_tool(z80asm, '-help') :
-        error('{} not found!'.format(z80asm))
     config = { 
-        'sdcc': sdcc, 
+        'sdcc': 'sdcc', 
+        'sdar': 'sdar',
         'mess': mess, 
-        'z80asm': z80asm,
-        'makebin': makebin 
+        'z80asm': 'z80asm',
+        'makebin': 'makebin' 
     }
     with open('.config', 'w') as f :
         f.write(json.dumps(config))
@@ -77,7 +70,7 @@ def run_asm(src, dst) :
     cmd = [get_tool_path('z80asm'), src, '--verbose', '-o', 'bin/{}.bin'.format(dst)]
     return 0 == subprocess.call(cmd)
 
-def run_sdcc(src) :
+def run_sdcc_exe(src) :
     cmd = [get_tool_path('sdcc'), src, '--verbose',
            '-mz80', '--std-sdcc99', '--no-std-crt0',
            '--disable-warning', '218',
@@ -85,7 +78,28 @@ def run_sdcc(src) :
            '--opt-code-size',
            '--code-loc', '0x300',
            '--data-loc', '0x200',
+           'caos.lib', '-L', 'lib',           
            '-o', 'bin/']
+    return 0 == subprocess.call(cmd)
+
+def run_sdcc_lib(sources) :
+    for src in sources :
+        path = 'lib/src/{}.c'.format(src)
+        print '>> {}:'.format(path)
+        cmd = [get_tool_path('sdcc'), '-c', path, '--verbose',
+              '-mz80', '--std-sdcc99', 
+              '--disable-warning', '218',
+              '--opt-code-size',
+              '-o', 'bin/']
+        if 0 != subprocess.call(cmd) :
+            return False
+    else :
+        return True
+
+def run_sdar(files) :
+    paths = ["bin/{}.rel".format(file) for file in files]
+    cmd = [get_tool_path('sdar'), '-rc', 'lib/caos.lib']
+    cmd.extend(paths)
     return 0 == subprocess.call(cmd)
 
 def run_makebin(name) :
@@ -146,7 +160,7 @@ def do_make(src) :
     dst, ext = os.path.splitext(src)
 
     # run compiler...
-    if not run_sdcc(src) :
+    if not run_sdcc_exe(src) :
         error("Failed compiling '{}'!".format(src))
     # generate binary file from Intel hex file
     if not run_makebin(dst) :
@@ -182,6 +196,15 @@ def do_run(system, name) :
     # run a compiled/assembled KCC file through mess
     run_mess(system, name)
 
+def do_lib() :
+    # rebuild the caos.lib
+    files = ['caos_color', 'caos_clear']
+    if not run_sdcc_lib(files) :
+        error('Compiling lib failed!')
+    if not run_sdar(files) :
+        error('Building lib failed!')
+    print 'wrote lib/caos.lib'
+
 #===============================================================================
 if len(sys.argv) == 1 :
     print 'Compile C code for KC85/3 and KC85/4 home computers.\n'
@@ -196,6 +219,8 @@ if len(sys.argv) == 1 :
     print '  run a compiled program in MESS'
     print '\nkc test [system=kc85_3|kc85_4]'
     print "  test run with a hardcoded 'HELLO WORLD' program"
+    print '\n kc lib'
+    print '  rebuild caos.lib\n\n'
 
 else :
     cmd = sys.argv[1]
@@ -234,5 +259,7 @@ else :
         if len(sys.argv) >= 3 :
             system = sys.argv[2]
         do_test(system)
+    elif cmd == 'lib' :
+        do_lib()
     else :
         error('Unknown cmd: {}'.format(cmd))
