@@ -11,7 +11,6 @@ Experimental ASM and C SDK for KC85 home computers.
 ### Getting Started (OSX)
 
 ```bash
-> brew install sdl2_gfx
 > brew install z80asm
 > brew install sdcc
 > cd ~
