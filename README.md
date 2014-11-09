@@ -29,4 +29,6 @@ How to call 'z80asm': [type: z80asm]
 > ./kc test
 > ./kc asm hello.s
 > ./kc run hello
+> ./kc make hello.c
+> ./kc run hello
 ```
