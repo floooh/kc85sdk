@@ -8,7 +8,7 @@ void hello() {
     for (i = 0; i < 16; i++) {
         // set background and foreground color
         caos_color(CAOS_WHITE, i);
-        // print macrot with embedded string literal
+        // print string literal
         caos_putl("Hello World!\n\r");
     }
     // set color to black on gray

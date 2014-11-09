@@ -22,10 +22,7 @@ Experimental ASM and C SDK for KC85 home computers.
 > git clone git@github.com:floooh/kc85sdk.git kc85sdk
 > cd kc85sdk
 > ./kc config
-How to call 'sdcc': [type: sdcc]
-How to call 'makebin': [type: makebin]
 How to call 'mess': [type: ~/mame/mess64]
-How to call 'z80asm': [type: z80asm]
 > ./kc test
 > ./kc asm hello.s
 > ./kc run hello
