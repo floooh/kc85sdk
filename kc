@@ -37,13 +37,21 @@ def do_config() :
     sdcc = os.path.expanduser(raw_input("How to call 'sdcc': "))
     if not check_tool(sdcc, '--version') :
         error('{} not found!'.format(sdcc))
+    makebin = os.path.expanduser(raw_input("How to call 'makebin': "))
+    if not check_tool(makebin, '-help') :
+        error('{} makebin not found!'.format(makebin))
     mess = os.path.expanduser(raw_input("How to call 'mess': "))
     if not check_tool(mess, '-help') :
         error('{} not found!'.format(mess))
     z80asm = os.path.expanduser(raw_input("How to call 'z80asm': "))
     if not check_tool(z80asm, '-help') :
         error('{} not found!'.format(z80asm))
-    config = { 'sdcc': sdcc, 'mess': mess, 'z80asm': z80asm }
+    config = { 
+        'sdcc': sdcc, 
+        'mess': mess, 
+        'z80asm': z80asm,
+        'makebin': makebin 
+    }
     with open('.config', 'w') as f :
         f.write(json.dumps(config))
     print '.config written'
@@ -67,6 +75,23 @@ def run_mess(system, name) :
 def run_asm(src, dst) :
     # assemble a source file with z80asm
     cmd = [get_tool_path('z80asm'), src, '--verbose', '-o', 'bin/{}.bin'.format(dst)]
+    return 0 == subprocess.call(cmd)
+
+def run_sdcc(src) :
+    cmd = [get_tool_path('sdcc'), src, '--verbose',
+           '-mz80', '--std-sdcc99', '--no-std-crt0',
+           '--disable-warning', '218',
+           '--nostdinc', '--nostdlib',
+           '--opt-code-size',
+           '--code-loc', '0x300',
+           '--data-loc', '0x200',
+           '-o', 'bin/']
+    return 0 == subprocess.call(cmd)
+
+def run_makebin(name) :
+    src = 'bin/{}.ihx'.format(name)
+    dst = 'bin/{}.bin'.format(name)
+    cmd = [get_tool_path('makebin'), '-p', src, dst]
     return 0 == subprocess.call(cmd)
 
 def pack_kcc_header(name, start, end) :
@@ -117,6 +142,27 @@ def do_test(system) :
         f.write(kcc)
     run_mess(system, 'test')
 
+def do_make(src) :
+    dst, ext = os.path.splitext(src)
+
+    # run compiler...
+    if not run_sdcc(src) :
+        error("Failed compiling '{}'!".format(src))
+    # generate binary file from Intel hex file
+    if not run_makebin(dst) :
+        error("Failed makebin of '{}'!".format(src))
+    # package binary into a KCC file
+    with open('bin/{}.bin'.format(dst), 'rb') as binfile :
+        # strip the first 0x200 bytes (data section starts
+        # at 0x200, code section at 0x300)
+        bin = binfile.read()[0x200:]
+        start = 0x200
+        end = start + len(bin)
+        kcc = pack_kcc_header(dst.upper(), start, end) + bin
+        with open('bin/{}.kcc'.format(dst), 'wb') as kccfile :
+            kccfile.write(kcc)
+        print 'wrote bin/{}.kcc'.format(dst)
+
 def do_asm(src, dst) :
     # compile to bin/dst.bin
     if run_asm(src, dst) :
@@ -142,7 +188,7 @@ if len(sys.argv) == 1 :
     print 'kc (cmd) [args...]'
     print '\nkc config'
     print '  run once to configure for your local environment'
-    print '\nkc make (c-source) [prog]'
+    print '\nkc make c-source'
     print '  compile c source into program'
     print '\nkc asm (asm-source) [prog]'
     print '  assemble asm source into program'
@@ -156,17 +202,10 @@ else :
     if cmd == 'config' :
         do_config()
     elif cmd == 'make' :
-        src = 'out.c'
-        dst = 'out'
-        if len(sys.argv) == 3 :
-            src = sys.argv[2]
-            dst, ext = os.path.splitext(src)
-        elif len(sys.argv) == 4 :
-            src = sys.argv[2]
-            dst = sys.argv[3]
-        else :
-            error('Excepted (source) and optional [prog] arg: kc make hello.c hello')
-        do_make(src, dst)
+        if len(sys.argv) != 3:
+            error("Expected 'source' argument: kc make hello.c")
+        src = sys.argv[2]
+        do_make(src)
     elif cmd == 'asm' :
         src = 'out.s'
         prg = 'out'
