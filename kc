@@ -8,106 +8,159 @@ import json
 import subprocess
 import struct
 
+valid_systems = ['kc85_3', 'kc85_4']
+config = {
+    'sdcc': 'sdcc', 
+    'sdar': 'sdar',
+    'mess': 'mess64', 
+    'z80asm': 'z80asm',
+    'makebin': 'makebin',
+    'system': 'kc85_3',
+}
+
+#-------------------------------------------------------------------------------
 def error(msg) :
     print "ERROR: {}".format(msg)
     sys.exit(10)
 
+#-------------------------------------------------------------------------------
 def has_config() :
     return os.path.isfile('.config') 
 
+#-------------------------------------------------------------------------------
 def load_config() :
-    if has_config() :
-        with open('.config', 'r') as f :
-            jsn = json.loads(f.read())
-        return jsn
-    else :
-        error("No .config file, run './kc config'!")
-        return None
+    if os.path.isfile('.config') :
+        f = open('.config', 'r')
+        jsn = json.loads(f.read())
+        f.close()
+        for key in jsn :
+            config[key] = jsn[key]
 
+#-------------------------------------------------------------------------------
+def save_config() :
+    f = open('.config', 'w')
+    f.write(json.dumps(config))
+    f.close()
+
+#-------------------------------------------------------------------------------
 def check_tool(tool, arg) :
     try :
-        subprocess.check_output([tool, arg])
+        subprocess.check_output([tool, arg], stderr=subprocess.STDOUT)
         print "'{}' found".format(tool)
         return True
     except OSError:
         return False
 
+#-------------------------------------------------------------------------------
 def do_config() :
     # where is mess?
     # we expect the sdcc and z80asm tools in the path
     mess = os.path.expanduser(raw_input("How to call 'mess': "))
     if not check_tool(mess, '-help') :
         error('{} not found!'.format(mess))
-    config = { 
-        'sdcc': 'sdcc', 
-        'sdar': 'sdar',
-        'mess': mess, 
-        'z80asm': 'z80asm',
-        'makebin': 'makebin' 
-    }
-    with open('.config', 'w') as f :
-        f.write(json.dumps(config))
+    system = raw_input("Default system ('kc85_3' or 'kc85_4'): ")
+    if system not in valid_systems :
+        error("must be 'kc85_3' or 'kc85_4'")
+    config['mess'] = mess
+    config['system'] = system
+    if not check_tool(config['makebin'], '-help') :
+        error("'makebin not found in path")
+    if not check_tool(config['sdcc'], '--help') :
+        error("'sdcc' not found in path!") 
+    if not check_tool(config['sdar'], '--help') :
+        error("'sdar' not found in path!")
+    if not check_tool(config['z80asm'], '-help') :
+        error("'z80asm' not found in path!")
+    save_config()
     print '.config written'
 
-def get_tool_path(tool) :
-    if not has_config() :
-        do_config()
-    cfg = load_config()
-    if cfg :
-        return cfg[tool]
+#-------------------------------------------------------------------------------
+def set_config(key, val) :
+    config[key] = val
+    save_config()
+    print '.config written'
 
+#-------------------------------------------------------------------------------
+def ensure_dirs() :
+    for system in valid_systems :
+        bin = 'bin/{}'.format(system)
+        lib = 'lib/{}'.format(system)
+        if not os.path.isdir(bin) :
+            os.makedirs(bin)
+        if not os.path.isdir(lib) :
+            os.makedirs(lib)
+
+#-------------------------------------------------------------------------------
 def run_mess(system, name) :
     # run mess with a KCC file
-    cmd = [get_tool_path('mess'), system, 
+    ensure_dirs()
+    cmd = [config['mess'], system, 
            '-rompath', 'bios', 
            '-window', '-resolution', '640x512', '-nokeepaspect',
            '-skip_gameinfo',
-           '-quik', 'bin/{}.kcc'.format(name)]
+           '-quik', 'bin/{}/{}.kcc'.format(system, name)]
     subprocess.call(cmd)
 
-def run_asm(src, dst) :
+#-------------------------------------------------------------------------------
+def run_asm(system, src, dst) :
     # assemble a source file with z80asm
-    cmd = [get_tool_path('z80asm'), src, '--verbose', '-o', 'bin/{}.bin'.format(dst)]
+    cmd = [config['z80asm'], src, '--verbose', '-o', 'bin/{}/{}.bin'.format(system, dst)]
     return 0 == subprocess.call(cmd)
 
-def run_sdcc_exe(src) :
-    cmd = [get_tool_path('sdcc'), src, '--verbose',
+#-------------------------------------------------------------------------------
+def run_sdcc_exe(system, src) :    
+    ensure_dirs()    
+    cmd = [config['sdcc'], src, '--verbose',
            '-mz80', '--std-sdcc99', '--no-std-crt0',
+           '-DKC85_3=1' if system == 'kc85_3' else '-DKC85_4=1',
            '--disable-warning', '218',
            '--nostdinc', '--nostdlib',
            '--opt-code-size',
            '--code-loc', '0x300',
            '--data-loc', '0x200',
-           'caos.lib', '-L', 'lib',           
-           '-o', 'bin/']
+           'caos.lib', '-L', 'lib/{}'.format(system),
+           '-o', 'bin/{}/'.format(system)]
     return 0 == subprocess.call(cmd)
 
-def run_sdcc_lib(sources) :
+#-------------------------------------------------------------------------------
+def run_sdcc_lib(system, sources) :
+    ensure_dirs()    
     for src in sources :
         path = 'lib/src/{}.c'.format(src)
         print '>> {}:'.format(path)
-        cmd = [get_tool_path('sdcc'), '-c', path, '--verbose',
+        cmd = [config['sdcc'], '-c', path, '--verbose',
               '-mz80', '--std-sdcc99', 
+              '-DKC85_3=1' if system == 'kc85_3' else '-DKC85_4=1',
               '--disable-warning', '218',
               '--opt-code-size',
-              '-o', 'bin/']
+              '-o', 'bin/{}/'.format(system)]
         if 0 != subprocess.call(cmd) :
             return False
     else :
         return True
 
-def run_sdar(files) :
-    paths = ["bin/{}.rel".format(file) for file in files]
-    cmd = [get_tool_path('sdar'), '-rc', 'lib/caos.lib']
+#-------------------------------------------------------------------------------
+def run_sdar(system, files) :
+    ensure_dirs()    
+    paths = ["bin/{}/{}.rel".format(system, file) for file in files]
+    lib = 'lib/{}/caos.lib'.format(system)
+    cmd = [config['sdar'], '-rc', lib]
     cmd.extend(paths)
+    if 0 == subprocess.call(cmd) :
+        print "wrote '{}'".format(lib)
+        return True
+    else :
+        return False
+
+#-------------------------------------------------------------------------------
+def run_makebin(system, name) :
+    ensure_dirs()    
+    src = 'bin/{}/{}.ihx'.format(system, name)
+    dst = 'bin/{}/{}.bin'.format(system, name)
+    cmd = [config['makebin'], '-p', src, dst]
     return 0 == subprocess.call(cmd)
 
-def run_makebin(name) :
-    src = 'bin/{}.ihx'.format(name)
-    dst = 'bin/{}.bin'.format(name)
-    cmd = [get_tool_path('makebin'), '-p', src, dst]
-    return 0 == subprocess.call(cmd)
-
+#-------------------------------------------------------------------------------
 def pack_kcc_header(name, start, end) :
     '''
     KCC file format header:
@@ -135,9 +188,7 @@ def pack_kcc_header(name, start, end) :
         error('ALIGNMENT ERROR')
     return hdr
 
-def print_hex(s) :
-    print ':'.join('{:02x}'.format(ord(c)) for c in s)    
-
+#-------------------------------------------------------------------------------
 def make_test_kcc() :
     # a little KC85/3 program which prints "HELLO WORLD"
     code = ('\x7F\x7FHELLO\x01'
@@ -150,116 +201,119 @@ def make_test_kcc() :
     kcc = pack_kcc_header('HELLO', start, end) + code
     return kcc
 
+#-------------------------------------------------------------------------------
 def do_test(system) :
+    ensure_dirs()
     kcc = make_test_kcc()
-    with open('bin/test.kcc', 'wb') as f :
+    with open('bin/{}/test.kcc'.format(system), 'wb') as f :
         f.write(kcc)
     run_mess(system, 'test')
 
-def do_make(src) :
+#-------------------------------------------------------------------------------
+def do_make(system, src) :
     dst, ext = os.path.splitext(src)
 
     # run compiler...
-    if not run_sdcc_exe(src) :
+    if not run_sdcc_exe(system, src) :
         error("Failed compiling '{}'!".format(src))
     # generate binary file from Intel hex file
-    if not run_makebin(dst) :
+    if not run_makebin(system, dst) :
         error("Failed makebin of '{}'!".format(src))
     # package binary into a KCC file
-    with open('bin/{}.bin'.format(dst), 'rb') as binfile :
+    with open('bin/{}/{}.bin'.format(system, dst), 'rb') as binfile :
         # strip the first 0x200 bytes (data section starts
         # at 0x200, code section at 0x300)
         bin = binfile.read()[0x200:]
         start = 0x200
         end = start + len(bin)
         kcc = pack_kcc_header(dst.upper(), start, end) + bin
-        with open('bin/{}.kcc'.format(dst), 'wb') as kccfile :
+        with open('bin/{}/{}.kcc'.format(system, dst), 'wb') as kccfile :
             kccfile.write(kcc)
-        print 'wrote bin/{}.kcc'.format(dst)
+        print 'wrote bin/{}/{}.kcc'.format(system, dst)
 
-def do_asm(src, dst) :
+#-------------------------------------------------------------------------------
+def do_asm(system, src, dst) :
     # compile to bin/dst.bin
-    if run_asm(src, dst) :
+    if run_asm(system, src, dst) :
         # load assembled binary and package into KCC
-        with open('bin/{}.bin'.format(dst), 'rb') as binfile :
+        with open('bin/{}/{}.bin'.format(system, dst), 'rb') as binfile :
             bin = binfile.read()
             start = 0x200
             end = start + len(bin)
             kcc = pack_kcc_header(dst.upper(), start, end) + bin
-            with open('bin/{}.kcc'.format(dst), 'wb') as kccfile :
+            with open('bin/{}/{}.kcc'.format(system, dst), 'wb') as kccfile :
                 kccfile.write(kcc)
-            print 'wrote bin/{}.kcc'.format(dst)
+            print 'wrote bin/{}/{}.kcc'.format(system, dst)
     else :
         error('Failed to assemble {}'.format(src))
 
+#-------------------------------------------------------------------------------
 def do_run(system, name) :
     # run a compiled/assembled KCC file through mess
     run_mess(system, name)
 
-def do_lib() :
+#-------------------------------------------------------------------------------
+def do_libs() :
     # rebuild the caos.lib
-    files = ['caos_color', 'caos_clear']
-    if not run_sdcc_lib(files) :
-        error('Compiling lib failed!')
-    if not run_sdar(files) :
-        error('Building lib failed!')
-    print 'wrote lib/caos.lib'
+    for system in valid_systems :
+        files = ['caos_color', 'caos_clear']
+        if not run_sdcc_lib(system, files) :
+            error('Compiling lib failed!')
+        if not run_sdar(system, files) :
+            error('Building lib failed!')
 
 #===============================================================================
+load_config()
 if len(sys.argv) == 1 :
-    print 'Compile C code for KC85/3 and KC85/4 home computers.\n'
-    print 'kc (cmd) [args...]'
-    print '\nkc config'
+    print '\nC/ASM SDK for KC85/3 and KC85/4 home computers.\n'
+    print 'kc (cmd) [args...]\n'
+    print 'kc config'
     print '  run once to configure for your local environment'
-    print '\nkc make c-source'
+    print 'kc system (kc85_3 or kc85_4)'
+    print '  select default system'
+    print 'kc make c-source'
     print '  compile c source into program'
-    print '\nkc asm (asm-source) [prog]'
+    print 'kc asm (asm-source) [prog]'
     print '  assemble asm source into program'
-    print '\nkc run (prog) [system=kc85_3|kc85_4]'
+    print 'kc run (prog)'
     print '  run a compiled program in MESS'
-    print '\nkc test [system=kc85_3|kc85_4]'
+    print 'kc test'
     print "  test run with a hardcoded 'HELLO WORLD' program"
-    print '\n kc lib'
-    print '  rebuild caos.lib\n\n'
+    print 'kc libs'
+    print '  rebuild caos.lib for kc85_3 and kc85_4\n\n'
 
 else :
     cmd = sys.argv[1]
     if cmd == 'config' :
         do_config()
+    elif cmd == 'system' :
+        if len(sys.argv) >= 3 and sys.argv[2] in valid_systems:
+            set_config('system', sys.argv[2])
+        else :
+            error('system name expected (kc85_3 or kc85_4)')
     elif cmd == 'make' :
-        if len(sys.argv) != 3:
-            error("Expected 'source' argument: kc make hello.c")
-        src = sys.argv[2]
-        do_make(src)
+        if len(sys.argv) >= 3 :
+            src = sys.argv[2]
+            do_make(config['system'], src)
+        else :
+            error('excpected source file name')
     elif cmd == 'asm' :
         src = 'out.s'
-        prg = 'out'
-        if len(sys.argv) == 3 :
+        dst = 'out'
+        if len(sys.argv) >= 3 :
             src = sys.argv[2]
             dst, ext = os.path.splitext(src)
-        elif len(sys.argv) == 4:
-            src = sys.argv[2]
+        if len(sys.argv) >= 4:
             dst = sys.argv[3]
-        else :
-            error('Excepted (source) and optional [prog] arg: kc asm hello.s hello')
-        do_asm(src, dst)
+        do_asm(config['system'], src, dst)
     elif cmd == 'run' :
-        system = 'kc85_3'
         prg = 'out'
-        if len(sys.argv) == 3 :
-            prg = sys.argv[2]
-        elif len(sys.argv) == 4 :
-            prg = sys.argv[2]
-            system = sys.argv[3]
-        else :
-            error('Expected (prog) and optional [system] arg: kc run hello kc85_3')
-        do_run(system, prg)
-    elif cmd == 'test' :
-        system = 'kc85_3'
         if len(sys.argv) >= 3 :
-            system = sys.argv[2]
-        do_test(system)
+            prg = sys.argv[2]
+        do_run(config['system'], prg)
+    elif cmd == 'test' :
+        do_test(config['system'])
     elif cmd == 'lib' :
-        do_lib()
+        do_libs()
     else :
         error('Unknown cmd: {}'.format(cmd))
