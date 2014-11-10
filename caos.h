@@ -52,7 +52,7 @@ void entry_##func() __naked { \
         func(); \
         __asm \
         .db 0xC9 \
-        __endasm; \
+    __endasm; \
 }
 
 //------------------------------------------------------------------------------
@@ -60,10 +60,12 @@ void entry_##func() __naked { \
 //  Print embedded string literal ()
 #define caos_putl(s) \
     __asm \
+        push af \
         call 0xf003 \
         .db 0x23 \
         .fcc s \
         .db 0x0 \
+        pop af \
     __endasm;
 
 //------------------------------------------------------------------------------
