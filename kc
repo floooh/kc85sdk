@@ -16,7 +16,7 @@ def has_config() :
     return os.path.isfile('.config') 
 
 def load_config() :
-    if has_config :
+    if has_config() :
         with open('.config', 'r') as f :
             jsn = json.loads(f.read())
         return jsn
