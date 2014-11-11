@@ -70,7 +70,15 @@ void entry_##func() __naked { \
 
 //------------------------------------------------------------------------------
 extern void caos_color(char background, char foreground);
-extern void caos_clear();
-
+extern void caos_clear(unsigned char val);
+extern void caos_clear_color_buf(unsigned char value);
+extern void caos_irm_view_0();
+extern void caos_irm_view_1();
+extern void caos_irm_view(char img);
+extern void caos_irm_access_0();
+extern void caos_irm_access_1();
+extern void caos_irm_access(char img);
+extern void caos_irm_pixel_bank();
+extern void caos_irm_color_bank();
 //------------------------------------------------------------------------------
 #endif

@@ -256,7 +256,12 @@ def do_run(system, name) :
 def do_libs() :
     # rebuild the caos.lib
     for system in valid_systems :
-        files = ['caos_color', 'caos_clear']
+        files = [
+            'caos_color', 
+            'caos_clear',
+            'caos_clear_color_buf',
+            'caos_irm'
+        ]
         if not run_sdcc_lib(system, files) :
             error('Compiling lib failed!')
         if not run_sdar(system, files) :
