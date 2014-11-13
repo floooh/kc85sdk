@@ -83,6 +83,6 @@ extern void caos_irm_access_1();
 extern void caos_irm_access(char img);
 extern void caos_irm_pixel_bank();
 extern void caos_irm_color_bank();
-extern void caos_line(unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1);
+extern void caos_line(short x0, short y0, short x1, short y1);
 //------------------------------------------------------------------------------
 #endif

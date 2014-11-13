@@ -13,6 +13,12 @@ caos_entry("CLRCOLOR", test_clear_color_buf)
 void test_double_buf() {
     short i;
 
+    caos_clear(0);
+    for (i = 0; i < 32; i++) {
+        caos_line(0, 0, 255, i<<3);
+    }
+
+#if 0
     // image0 pattern
     caos_irm_view_1();
     caos_irm_access_0();
@@ -35,5 +41,6 @@ void test_double_buf() {
         caos_irm_view(i & 1);
         caos_wait(100); 
     }
+#endif
 }
 caos_entry("DBLBUF", test_double_buf)
