@@ -260,7 +260,9 @@ def do_libs() :
             'caos_color', 
             'caos_clear',
             'caos_clear_color_buf',
-            'caos_irm'
+            'caos_wait',
+            'caos_irm',
+            'caos_line'
         ]
         if not run_sdcc_lib(system, files) :
             error('Compiling lib failed!')
