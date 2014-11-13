@@ -1,20 +1,20 @@
 #ifndef __CAOS_H
 #define __CAOS_H
-    //------------------------------------------------------------------------------
-    /**
-        @file chaos.h
+//------------------------------------------------------------------------------
+/**
+    @file chaos.h
 
-        'System header' for writing KC85 C programs.
-        CAOS is the name of the KC85/2, /3, /4 operating system
-        (C)ASSETTE (A)IDED (O)PERATING (S)YSTEM
+    'System header' for writing KC85 C programs.
+    CAOS is the name of the KC85/2, /3, /4 operating system
+    (C)ASSETTE (A)IDED (O)PERATING (S)YSTEM
 
-        http://www.mpm-kc85.de/dokupack/KC85_3_uebersicht.pdf    
-        http://www.z80.info/z80inst.txt    
+    http://www.mpm-kc85.de/dokupack/KC85_3_uebersicht.pdf    
+    http://www.z80.info/z80inst.txt    
 
-        NOTE: IX must not be touched!
-    */
+    NOTE: IX must not be touched!
+*/
 
-    // special places in memory
+// special places in memory
 #define CAOS_ARGC 0xB780
 #define CAOS_ARGN 0xB781
 #define CAOS_ARG1 0xB782
