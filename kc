@@ -120,7 +120,7 @@ def run_mess(system, name, debug) :
            '-verbose',
            '-quik', 'bin/{}/{}.kcc'.format(system, name)]
     if debug :
-        cmd.extend(['-debug'])
+        cmd.extend(['-debug', '-debugscript', 'bin/{}/__debug.txt'.format(system)])
     print cmd
     subprocess.call(cmd)
 
@@ -268,8 +268,36 @@ def do_run(system, name) :
     run_mess(system, name, False)
 
 #-------------------------------------------------------------------------------
-def do_debug(system, name) :
-    # run MESS with debugger on
+def do_debug(system, name, brk) :
+
+    print ('do_debug {} {} {}'.format(system, name, brk))
+    addr = None
+    if brk :
+        # setup debugger script to 'go to address'
+        # read the map file, find symbol and read the address,
+        # then write a start script for the MESS debugger
+        symbol = '_' + brk + ' '
+        addr = None
+        map_path = 'bin/{}/{}.map'.format(system, name)
+        if os.path.isfile(map_path) :
+            with open(map_path, 'r') as f :
+                lines = f.readlines()
+                for line in lines :
+                    if brk in line :
+                        addr = line.split()[0]
+                        break
+            if not addr :
+                print "WARNING: symbol '{}' not found in '{}'".format(brk, map_path)
+        else :
+            print "WARNING: map file '{}' does not exist!".format(map_path) 
+    
+    with open('bin/{}/__debug.txt'.format(system), 'w') as f :
+        if addr :
+            f.write('go {}'.format(addr));
+        else :
+            f.write(' ')
+
+    # call MESS with debugger active
     run_mess(system, name, True)
 
 #-------------------------------------------------------------------------------
@@ -306,8 +334,8 @@ if len(sys.argv) == 1 :
     print '  assemble asm source into program'
     print 'kc run (prog)'
     print '  run a compiled program in MESS'
-    print 'kc debug (prog)'
-    print '  like run, but with debugger activated'
+    print 'kc debug (prog) [break-func]'
+    print '  like run, but with debugger activated, optionally break at function'
     print 'kc test'
     print "  test run with a hardcoded 'HELLO WORLD' program"
     print 'kc libs'
@@ -349,9 +377,12 @@ else :
         do_run(config['system'], prg)
     elif cmd == 'debug' :
         prg = 'out'
+        brk = None
         if len(sys.argv) >= 3 :
             prg = sys.argv[2]
-        do_debug(config['system'], prg)
+        if len(sys.argv) >= 4 :
+            brk = sys.argv[3]
+        do_debug(config['system'], prg, brk)
     elif cmd == 'test' :
         do_test(config['system'])
     elif cmd == 'lib' :
