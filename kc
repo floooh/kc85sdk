@@ -117,7 +117,6 @@ def run_mess(system, name, debug) :
            '-rompath', 'bios', 
            '-window', '-resolution', '640x512', '-nokeepaspect',
            '-skip_gameinfo',
-           '-verbose',
            '-quik', 'bin/{}/{}.kcc'.format(system, name)]
     if debug :
         cmd.extend(['-debug', '-debugscript', 'bin/{}/__debug.txt'.format(system)])
@@ -283,13 +282,13 @@ def do_debug(system, name, brk) :
             with open(map_path, 'r') as f :
                 lines = f.readlines()
                 for line in lines :
-                    if brk in line :
+                    if symbol in line :
                         addr = line.split()[0]
                         break
             if not addr :
-                print "WARNING: symbol '{}' not found in '{}'".format(brk, map_path)
+                error("symbol '{}' not found in '{}'".format(brk, map_path))
         else :
-            print "WARNING: map file '{}' does not exist!".format(map_path) 
+            error("map file '{}' does not exist!".format(map_path)) 
     
     with open('bin/{}/__debug.txt'.format(system), 'w') as f :
         if addr :

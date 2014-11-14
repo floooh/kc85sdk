@@ -6,32 +6,25 @@
 //------------------------------------------------------------------------------
 #include "../../caos.h"
 
-void set_pixel(short x, short y) {
+unsigned char bit[8] = {
+    0x80, 0x40, 0x20, 0x10, 0x8, 0x4, 0x2, 0x1
+};
+
+void set_pixel(unsigned char x, unsigned char y) {
     // note, the KC85/4 vidmem is vertically organized!
     unsigned char* addr = (unsigned char*) 0x8000;
-    addr[((x>>3)<<8) + y] ^= 0x80 >> (x&7); 
+    //addr[((x>>3)<<8) + y] ^= 0x80 >> (x&7); 
+    addr[((x / 8) * 0x100) + y] ^= bit[x & 7];
 }
 
-void caos_line(short x0, short y0, short x1, short y1) {
+// assume that y1 >= y0 and x1 >= x0
+void caos_line_x0x1(unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1) {
 
-    short dx, dy, sx, sy;
-    short err, e2;
+    char dx, dy;
+    char err, e2;
+    
     dx = x1 - x0;
-    if (dx > 0) {
-        sx = 1;
-    }
-    else {
-        dx = -dx;
-        sx = -1;
-    }
     dy = y1 - y0;
-    if (dy > 0) {
-        sy = 1;
-    }
-    else {
-        dy = -dy;
-        sy = -1;
-    }
     err = (dx > dy ? dx : -dy) / 2;
     for (;;) {
         set_pixel(x0, y0);
@@ -39,15 +32,59 @@ void caos_line(short x0, short y0, short x1, short y1) {
         e2 = err;
         if (e2 > -dx) {
             err -= dy;
-            x0 += sx;
+            x0++;
         }
         if (e2 < dy) {
             err += dx;
-            y0 += sy;
+            y0++;
         }
     }
+}
+
+// assume that y1 < y0 and x1 >= x0
+void caos_line_x1x0(unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1) {
+
+    char dx, dy;
+    char err, e2;
+    
+    dx = x0 - x1;
+    dy = y1 - y0;
+    err = (dx > dy ? dx : -dy) / 2;
+    for (;;) {
+        set_pixel(x0, y0);
+        if (x0 == x1 && y0 == y1) break;
+        e2 = err;
+        if (e2 > -dx) {
+            err -= dy;
+            x0--;
+        }
+        if (e2 < dy) {
+            err += dx;
+            y0++;
+        }
+    }
+}
+
+// assume that y1 >= y0
+void caos_line_y0y1(unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1) {
+
+    if (x0 < x1) {
+        caos_line_x0x1(x0, y0, x1, y1);
+    }
+    else {
+        caos_line_x1x0(x0, y0, x1, y1);
+    }
+}
+
+void caos_line(unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1) {
+    if (y0 < y1) {
+        caos_line_y0y1(x0, y0, x1, y1);
+    }
+    else {
+        caos_line_y0y1(x1, y1, x0, y0);
+    }
 // regular operating system line function
-#if 0
+#if 0 
     x0, y0, x1, y1;
     __asm
     push af

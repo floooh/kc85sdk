@@ -2,9 +2,6 @@
 
 void hello() {
     char i;
-    // clear screen to white-on-grey
-    caos_color(CAOS_WHITE, CAOS_WHITE);
-    caos_clear();
     for (i = 0; i < 16; i++) {
         // set background and foreground color
         caos_color(CAOS_WHITE, i);

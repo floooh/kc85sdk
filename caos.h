@@ -13,6 +13,7 @@
 
     NOTE: IX must not be touched!
 */
+#pragma sdcc_hash +
 
 // special places in memory
 #define CAOS_ARGC 0xB780
@@ -50,7 +51,15 @@ void entry_##func() __naked { \
         .db 0x7F, 0x7F \
         .fcc name \
         .db 0x1 \
-        __endasm; \
+        ld bc, #l__INITIALIZER \
+        ld a,b \
+        or a,c \
+        jr Z,gsinit_next_##func \
+        ld de,#s__INITIALIZED \
+        ld hl,#s__INITIALIZER \
+        ldir \
+gsinit_next_##func: \
+        __endasm;\
         func(); \
         __asm \
         .db 0xC9 \
@@ -83,6 +92,6 @@ extern void caos_irm_access_1();
 extern void caos_irm_access(char img);
 extern void caos_irm_pixel_bank();
 extern void caos_irm_color_bank();
-extern void caos_line(short x0, short y0, short x1, short y1);
+extern void caos_line(unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1);
 //------------------------------------------------------------------------------
 #endif
