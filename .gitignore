@@ -1,4 +1,4 @@
 .config
 cfg
 bin
-
+*.swp
