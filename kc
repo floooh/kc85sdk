@@ -7,8 +7,10 @@ import os
 import json
 import subprocess
 import struct
+import shutil
 
 valid_systems = ['kc85_3', 'kc85_4']
+
 config = {
     'sdcc': 'sdcc', 
     'sdar': 'sdar',
@@ -17,6 +19,21 @@ config = {
     'makebin': 'makebin',
     'system': 'kc85_3',
 }
+
+# generic SDCC flags (lib and exe)
+sdcc_flags = [
+    '--verbose',
+    '-mz80',
+    '--std-sdcc99',
+    '--fomit-frame-pointer',
+    '--disable-warning', '218',
+    '--nostdinc',
+    '--nostdlib',
+    '--no-std-crt0',
+    '--opt-code-size',
+    '--code-loc', '0x300',
+    '--data-loc', '0x200',
+]
 
 #-------------------------------------------------------------------------------
 def error(msg) :
@@ -91,14 +108,20 @@ def ensure_dirs() :
             os.makedirs(lib)
 
 #-------------------------------------------------------------------------------
-def run_mess(system, name) :
+def run_mess(system, name, debug) :
     # run mess with a KCC file
     ensure_dirs()
+    mess_path  = config['mess']
+    index_html = os.path.dirname(mess_path) + '/web/index.html'
     cmd = [config['mess'], system, 
            '-rompath', 'bios', 
            '-window', '-resolution', '640x512', '-nokeepaspect',
            '-skip_gameinfo',
+           '-verbose',
            '-quik', 'bin/{}/{}.kcc'.format(system, name)]
+    if debug :
+        cmd.extend(['-debug'])
+    print cmd
     subprocess.call(cmd)
 
 #-------------------------------------------------------------------------------
@@ -109,17 +132,11 @@ def run_asm(system, src, dst) :
 
 #-------------------------------------------------------------------------------
 def run_sdcc_exe(system, src) :    
-    ensure_dirs()    
-    cmd = [config['sdcc'], src, '--verbose',
-           '-mz80', '--std-sdcc99', '--no-std-crt0',
-           '-DKC85_3=1' if system == 'kc85_3' else '-DKC85_4=1',
-           '--disable-warning', '218',
-           '--nostdinc', '--nostdlib',
-           '--opt-code-size',
-           '--code-loc', '0x300',
-           '--data-loc', '0x200',
-           'caos.lib', '-L', 'lib/{}'.format(system),
-           '-o', 'bin/{}/'.format(system)]
+    ensure_dirs()
+    cmd = [config['sdcc'], src, '-DKC85_3=1' if system == 'kc83_3' else '-DKC85_4=1'] 
+    cmd.extend(sdcc_flags)
+    cmd.extend(['caos.lib', '-L', 'lib/{}'.format(system), '-o', 'bin/{}/'.format(system)])
+    print cmd
     return 0 == subprocess.call(cmd)
 
 #-------------------------------------------------------------------------------
@@ -128,17 +145,15 @@ def run_sdcc_lib(system, sources) :
     for src in sources :
         path = 'lib/src/{}.c'.format(src)
         print '>> {}:'.format(path)
-        cmd = [config['sdcc'], '-c', path, '--verbose',
-              '-mz80', '--std-sdcc99', 
-              '-DKC85_3=1' if system == 'kc85_3' else '-DKC85_4=1',
-              '--disable-warning', '218',
-              '--opt-code-size',
-              '-o', 'bin/{}/'.format(system)]
+        cmd = [config['sdcc'], '-c', path]
+        cmd.extend(sdcc_flags)
+        cmd.extend(['-o', 'bin/{}/'.format(system)])
+        print cmd
         if 0 != subprocess.call(cmd) :
             return False
     else :
         return True
-
+    
 #-------------------------------------------------------------------------------
 def run_sdar(system, files) :
     ensure_dirs()    
@@ -207,7 +222,7 @@ def do_test(system) :
     kcc = make_test_kcc()
     with open('bin/{}/test.kcc'.format(system), 'wb') as f :
         f.write(kcc)
-    run_mess(system, 'test')
+    run_mess(system, 'test', False)
 
 #-------------------------------------------------------------------------------
 def do_make(system, src) :
@@ -250,7 +265,12 @@ def do_asm(system, src, dst) :
 #-------------------------------------------------------------------------------
 def do_run(system, name) :
     # run a compiled/assembled KCC file through mess
-    run_mess(system, name)
+    run_mess(system, name, False)
+
+#-------------------------------------------------------------------------------
+def do_debug(system, name) :
+    # run MESS with debugger on
+    run_mess(system, name, True)
 
 #-------------------------------------------------------------------------------
 def do_libs() :
@@ -280,10 +300,14 @@ if len(sys.argv) == 1 :
     print '  select default system'
     print 'kc make c-source'
     print '  compile c source into program'
+    print 'kc clean'
+    print '  clean build files'
     print 'kc asm (asm-source) [prog]'
     print '  assemble asm source into program'
     print 'kc run (prog)'
     print '  run a compiled program in MESS'
+    print 'kc debug (prog)'
+    print '  like run, but with debugger activated'
     print 'kc test'
     print "  test run with a hardcoded 'HELLO WORLD' program"
     print 'kc libs'
@@ -304,6 +328,11 @@ else :
             do_make(config['system'], src)
         else :
             error('excpected source file name')
+    elif cmd == 'clean' :
+        for system in valid_systems :
+            path = 'bin/{}'.format(system)
+            if os.path.isdir(path) :
+                shutil.rmtree(path)
     elif cmd == 'asm' :
         src = 'out.s'
         dst = 'out'
@@ -318,6 +347,11 @@ else :
         if len(sys.argv) >= 3 :
             prg = sys.argv[2]
         do_run(config['system'], prg)
+    elif cmd == 'debug' :
+        prg = 'out'
+        if len(sys.argv) >= 3 :
+            prg = sys.argv[2]
+        do_debug(config['system'], prg)
     elif cmd == 'test' :
         do_test(config['system'])
     elif cmd == 'lib' :
