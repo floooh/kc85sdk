@@ -226,6 +226,7 @@ def do_test(system) :
 #-------------------------------------------------------------------------------
 def do_make(system, src) :
     dst, ext = os.path.splitext(src)
+    _, dst = os.path.split(dst)
 
     # run compiler...
     if not run_sdcc_exe(system, src) :
@@ -248,6 +249,7 @@ def do_make(system, src) :
 #-------------------------------------------------------------------------------
 def do_asm(system, src, dst) :
     # compile to bin/dst.bin
+    _, dst = os.path.split(dst)
     if run_asm(system, src, dst) :
         # load assembled binary and package into KCC
         with open('bin/{}/{}.bin'.format(system, dst), 'rb') as binfile :
