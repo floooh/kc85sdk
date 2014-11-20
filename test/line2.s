@@ -5,19 +5,19 @@
         db $7f,$7f,"LINE2",$1
         
 line_noclear:        
-        ld hl,$0202         ; x0=0, y0=0
-        ld de,$8011         ; x1=80, y1=11
+        ld hl,$0000         ; x0=0, y0=0
+        ld de,$8000         ; x1=80, y1=0
 
 line_loop:
-;        push hl
-;        push de
+        push hl
+        push de
         call line_start
-;        pop de
-;        pop hl
-;        inc e
-;        ld a,$80
-;        cp l
-;        jp nz,line_loop
+        pop de
+        pop hl
+        inc e
+        ld a,$80
+        cp e
+        jp nz,line_loop
         ret
         
 ;-------------------------------------------------------------------------------
@@ -25,6 +25,17 @@ line_loop:
 ;   hl: x0y0
 ;   de: x1y1
 line_start:
+        ld a,d      ; patch last column into end-of-line-check code
+        srl a
+        srl a
+        srl a
+        or $80      ; vidmem start high-byte
+        ld (p0+1),a
+        ld (p2+1),a
+        ld a,e      ; patch last y-coord into end-of-line check code
+        ld (p1+1),a
+        ld (p3+1),a
+
         ld a,d      ; compute dx -> d
         sub h
         ld d,a
@@ -98,7 +109,13 @@ pixel_loop:
         sub e
                             ; fallthrough: next x column on same line
         ex af,af'           ; store current error, AND carry flag(!)
-        ld a,(hl)           ; write current pixel
+p0:     ld a,$0             ; will be patched with last column
+        cp h
+        jp nz,cont0
+p1:     ld a,$0             ; will be patched with last y-coord
+        cp l 
+        jp z,done1
+cont0:  ld a,(hl)           ; write current pixel
         xor c
         ld (hl),a
         xor a               ; clear pixel mask for next 8 pixels
@@ -112,7 +129,13 @@ pixel_loop:
 inc_y:  
         add d           ; error correction (err + dx)
         ex af,af'       ; store current error
-        ld a,(hl)       ; write pixels
+p2:     ld a,$0         ; will be patched with last column
+        cp h
+        jp nz,cont1
+p3:     ld a,$0         ; will be patched with last y-coord
+        cp l
+        jp z,done0
+cont1:  ld a,(hl)       ; write pixels
         xor c
         ld (hl),a
         inc l           ; increment y
@@ -121,3 +144,12 @@ inc_y:
         ex af,af'    
         ret             ; on to next pixel
 
+done0:
+        inc sp          ; clear return address from stack
+        inc sp
+done1:
+        ld a,(hl)       ; fixme: and c with last-column-mask
+        xor c
+        ld (hl),a
+        ret
+        
