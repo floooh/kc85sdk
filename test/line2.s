@@ -2,11 +2,13 @@
 ;   fast line drawing, second attempt
 ;
         org $200
+mask:   db $80,$C0,$E0,$F0,$F8,$FC,$FE,$FF
+
         db $7f,$7f,"LINE2",$1
         
 line_noclear:        
-        ld hl,$0000         ; x0=0, y0=0
-        ld de,$8000         ; x1=80, y1=0
+        ld hl,$0000
+        ld de,$7c00
 
 line_loop:
         push hl
@@ -15,7 +17,7 @@ line_loop:
         pop de
         pop hl
         inc e
-        ld a,$80
+        ld a,$7c
         cp e
         jp nz,line_loop
         ret
@@ -24,6 +26,7 @@ line_loop:
 ;   input:
 ;   hl: x0y0
 ;   de: x1y1
+
 line_start:
         ld a,d      ; patch last column into end-of-line-check code
         srl a
@@ -35,6 +38,14 @@ line_start:
         ld a,e      ; patch last y-coord into end-of-line check code
         ld (p1+1),a
         ld (p3+1),a
+
+        ld a,d      ; compute and code-patch final column pixel mask
+        and $7
+        ld bc,mask
+        add c
+        ld c,a
+        ld a,(bc)
+        ld (p4+1),a
 
         ld a,d      ; compute dx -> d
         sub h
@@ -150,6 +161,7 @@ done0:
 done1:
         ld a,(hl)       ; fixme: and c with last-column-mask
         xor c
+p4:     and $ff         ; final bitmask will be patched at start
         ld (hl),a
         ret
         
