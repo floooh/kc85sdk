@@ -2,32 +2,51 @@
 ;   fast line drawing, second attempt
 ;
         org $200
-mask:   db $80,$C0,$E0,$F0,$F8,$FC,$FE,$FF
+end_mask:   
+        db $80,$C0,$E0,$F0,$F8,$FC,$FE,$FF
 
-        db $7f,$7f,"LINE2",$1
-        
-line_noclear:        
-        ld hl,$0000
-        ld de,$7c00
-
-line_loop:
+        db $7f,$7f,"LINE2",$1        
+        ld hl,$807f
+        ld de,$ff00
+line_l0:
         push hl
         push de
-        call line_start
+        call line_hori
         pop de
         pop hl
         inc e
-        ld a,$7c
+        ld a,$ff
         cp e
-        jp nz,line_loop
+        jp nz,line_l0
+
+        ld hl,$807f
+        ld de,$0000
+line_l1:
+        push hl
+        push de
+        call line_hori
+        pop de
+        pop hl
+        inc e
+        ld a,$ff
+        cp e
+        jp nz,line_l1
+
         ret
         
 ;-------------------------------------------------------------------------------
-;   input:
+;   line_hori
 ;   hl: x0y0
 ;   de: x1y1
+line_hori:
+        ld a,d      ; make sure that x1 >= x0
+        cp h
+        jp nc, line_x0x1
 
-line_start:
+line_x1x0:
+        ex de,hl    ; if x0 > x1, exchange x0y0 <-> x1y1
+
+line_x0x1:
         ld a,d      ; patch last column into end-of-line-check code
         srl a
         srl a
@@ -41,7 +60,7 @@ line_start:
 
         ld a,d      ; compute and code-patch final column pixel mask
         and $7
-        ld bc,mask
+        ld bc,end_mask
         add c
         ld c,a
         ld a,(bc)
@@ -53,8 +72,21 @@ line_start:
 
         ld a,e      ; compute dy -> e
         sub l
-        ld e,a        
-
+        ld e,a    
+        jp nc, dy_pos    ; dy is positive        
+dy_neg:             ; line goes upward, neg dy and patch code to decrement y-coord
+        ld a,e
+        neg a
+        ld e,a
+        ld a,$2d    ; code patch y-bump: dec l -> 2D
+        ld (p5),a   
+        ld (p6),a
+        jp dy_cont
+dy_pos:             ; line goes download, patch code to increment y-coord
+        ld a,$2c    ; code patch y-bumpL inc l -> 2C
+        ld (p5),a
+        ld (p6),a
+dy_cont:
         ld a,h      ; patch initial jump target into unrolled loop
         and $7
         add a
@@ -63,13 +95,12 @@ line_start:
         add c       ; a = x*6
         ld (patch_jp+1),a   
        
-        ld a,l          ; vidmem addr -> hl
+        ld a,h          ; vidmem addr -> hl
         srl a
         srl a
         srl a
         add $80
-        ld l,h
-        ld h,a          ; hl: $8yxx
+        ld h,a          ; hl: $8xyy
 
         xor a           ; clear initial pixel bitmask
         ld c,a
@@ -90,31 +121,31 @@ pixel_loop:
 ;--- bit7 (left-most)
         set 7,c             ; 2 bytes +
         sub e               ; 1 byte +
-        call c, inc_y       ; 3 bytes = 6 bytes
+        call c, bmp_y       ; 3 bytes = 6 bytes
 ;--- bit6
         set 6,c
         sub e
-        call c, inc_y
+        call c, bmp_y
 ;--- bit5
         set 5,c
         sub e
-        call c,inc_y
+        call c,bmp_y
 ;--- bit4
         set 4,c
         sub e
-        call c,inc_y
+        call c,bmp_y
 ;--- bit3
         set 3,c
         sub e
-        call c,inc_y
+        call c,bmp_y
 ;--- bit2
         set 2,c
         sub e
-        call c,inc_y
+        call c,bmp_y
 ;--- bit1
         set 1,c
         sub e
-        call c,inc_y
+        call c,bmp_y
 ;--- bit0 (right-most)
         set 0,c
         sub e
@@ -135,9 +166,9 @@ cont0:  ld a,(hl)           ; write current pixel
         ex af,af'           ; restore error AND carry flag (!)
         jp nc,pixel_loop    ; this was an end-of-column
         add d               ; carry flag was set: error correction, and increment y
-        inc l
+p6:     inc l
         jp pixel_loop
-inc_y:  
+bmp_y:  
         add d           ; error correction (err + dx)
         ex af,af'       ; store current error
 p2:     ld a,$0         ; will be patched with last column
@@ -149,7 +180,7 @@ p3:     ld a,$0         ; will be patched with last y-coord
 cont1:  ld a,(hl)       ; write pixels
         xor c
         ld (hl),a
-        inc l           ; increment y
+p5:     inc l           ; increment y
         xor a           ; clear pixel mask
         ld c,a
         ex af,af'    
