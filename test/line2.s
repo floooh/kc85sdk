@@ -8,7 +8,7 @@ start_mask:
         db $80,$40,$20,$10,$8,$4,$2,$1 
 
         db $7f,$7f,"LINE2",$1        
-        ld hl,$8080
+start:  ld hl,$8080
         ld de,$ff00
 line_l0:
         push hl
