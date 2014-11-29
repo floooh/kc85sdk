@@ -129,7 +129,7 @@ def run_asm(system, src, dst) :
     
     # NOTE: for some reason z80asm is very picky about the --label argument, and
     # putting args into an array seems to mess up the '=', thus put everything into one string
-    cmd = '{} --verbose --label="bin/{}/{}.lab" -o bin/{}/{}.bin {}'.format(config['z80asm'], system, dst, system, dst, src) 
+    cmd = '{} --verbose --includepath="lib/asm" --label="bin/{}/{}.lab" -o bin/{}/{}.bin {}'.format(config['z80asm'], system, dst, system, dst, src) 
     return 0 == subprocess.call(cmd, shell=True)
 
 #-------------------------------------------------------------------------------
