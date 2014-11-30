@@ -7,8 +7,9 @@
         include "math.i"
 
         db $7f,$7f,"MATH",$1
-start:  ld h,4
-        ld e,4
+start:  call gen_sqr_table
+        ld b,$f0
+        ld c,$f0
         call mul8
         ret
 
