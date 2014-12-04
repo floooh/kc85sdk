@@ -19,7 +19,7 @@
 ;
 ;   modifies: hl,b,a
 mx_ident:
-    ld a,$80        ; 1.0
+    ld a,$7f        ; ~1.0
     ld b,a
     xor a
 
@@ -51,7 +51,7 @@ mx_ident:
     ret
 
 ;-------------------------------------------------------------------------------
-;   mx_rotx
+;   mx_roty
 ;
 ;   init matrix at addr hl to rotation matrix around y
 ;
@@ -63,12 +63,12 @@ mx_ident:
 ;   hl: matrix address
 ;   modifies: a,hl,de,bc
 ;
-mx_rotx:
+mx_roty:
     push hl
     call sincos8        ; d=sin(a), e=cos(a)
     pop hl
     
-    ld a,$80
+    ld a,$7f            ; ~1.0
     ld b,a
     ld a,d
     neg a
@@ -113,26 +113,26 @@ mx_rotx:
 ;   hl: points to matrix
 ;
 mx_mulvec:
-    ld b,(iy+0)     ; compute x
-    ld c,(hl)
     push hl
-    call mul8         ; hl = x * mx0
+    ld a,(hl)
+    ld h,(iy+0)     ; compute x
+    call mul8       ; h = x * mx0
     ld a,h          ; result in a
     ex af,af'       ; store af
     pop hl
     inc hl
-    ld b,(iy+0)
-    ld c,(hl)
     push hl
+    ld a,(hl)       
+    ld h,(iy+1)
     call mul8       ; hl = x * mx1
     ex af,af'
     add a,h
     ex af,af'
     pop hl
     inc hl
-    ld b,(iy+0)
-    ld c,(hl)
     push hl
+    ld a,(hl)
+    ld h,(iy+2)
     call mul8       ; hl = x * mx2
     ex af,af'
     add a,h
@@ -142,60 +142,58 @@ mx_mulvec:
     ld (iy+4),a     ; store x result
 
     inc hl          ; compute y
-    ld b,(iy+1)
-    ld c,(hl)
     push hl
+    ld a,(hl)
+    ld h,(iy+0)
     call mul8       ; hl = y * my0
     ld a,h          ; result in a
     ex af,af'
     pop hl
     inc hl
-    ld b,(iy+1)
-    ld c,(hl)
     push hl
+    ld a,(hl)
+    ld h,(iy+1)
     call mul8       ; hl = y * my1
     ex af,af'
     add a,h
     ex af,af'
     pop hl
     inc hl
-    ld b,(iy+1)
-    ld c,(hl)
     push hl
+    ld a,(hl)
+    ld h,(iy+2)
     call mul8       ; hl = y * my2
     ex af,af'
     add a,h
-    ex af,af'
     pop hl
     inc hl
     add a,(hl)      ; translation y
     ld (iy+5),a     ; store y
 
     inc hl
-    ld b,(iy+2)
-    ld c,(hl)
     push hl
+    ld a,(hl)
+    ld h,(iy+0)
     call mul8       ; hl = z * mz0
     ld a,h          ; result in a
     ex af,af'
     pop hl
     inc hl
-    ld b,(iy+2)
-    ld c,(hl)
     push hl
+    ld a,(hl)
+    ld h,(iy+1)
     call mul8       ; hl = z * mz1
     ex af,af'
     add a,h
     ex af,af'
     pop hl
     inc hl
-    ld b,(iy+2)
-    ld c,(hl)
     push hl
+    ld a,(hl)
+    ld h,(iy+2)
     call mul8      ; hl = z * mz2
     ex af,af'
     add a,h
-    ex af,af'
     pop hl
     inc hl
     add a,(hl)      ; translation z

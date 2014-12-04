@@ -1,7 +1,7 @@
 ;-------------------------------------------------------------------------------
 ;   mul8
 ;
-;   A = H * A
+;   H = H * A
 ;
 ;   H is signed int, A is signed fractional, A is integer result.
 ;
@@ -58,10 +58,11 @@ mul8_step7:
         jp nc,mul8_step8
         add hl,de
 mul8_step8:        
-        ld a,h
         sla b           ; test result sign (computed at start)
         ret nc          ; result remains positive, all done
         
+        ld a,h
         neg             ; result must be negative
+        ld h,a
         ret
 
