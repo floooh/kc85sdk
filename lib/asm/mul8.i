@@ -3,7 +3,7 @@
 ;
 ;   H = H * A
 ;
-;   H is signed int, A is signed fractional, A is integer result.
+;   H is signed int, A is signed fractional, H is integer result.
 ;
 mul8:   
         xor h           ; get sign of result
