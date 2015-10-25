@@ -16,7 +16,7 @@ Experimental ASM and C SDK for KC85 home computers.
 > cd ~
 > git clone git@github.com:mamedev/mame.git mame
 > cd mame
-> make TARGET=mess
+> make SUBTARGET=mess
 [mess executable is now '~/mame/mess64']
 > cd ~
 > git clone git@github.com:floooh/kc85sdk.git kc85sdk
