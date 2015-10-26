@@ -10,6 +10,8 @@ Experimental ASM and C SDK for KC85 home computers.
 
 ### Getting Started (OSX)
 
+NOTE: mess64 needs the framework version of SDL2 (https://www.libsdl.org/release/SDL2-2.0.3.dmg), the SDL2 in brew doesn't work!
+
 ```bash
 > brew install z80asm
 > brew install sdcc
